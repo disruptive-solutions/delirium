@@ -1,78 +1,8 @@
-import random
-import socket
-import struct
-import time
-
-from dnslib import RCODE, RR, A
+from dnslib import A, CLASS, PTR, RCODE, RR, QTYPE
 from dnslib.server import BaseResolver, DNSServer
 
-
-ADDR_RANGE_DEFAULT = '10.0.0.0-10.0.0.255'
-CACHE_DURATION_DEFAULT = 900  # 15 minutes
-LISTEN_ADDR_DEFAULT = '0.0.0.0'
-LISTEN_PORT_DEFAULT = 53
-
-
-def get_ip_ints(value):
-    """Converts a <ip>-<ip> string to integers for random.randrange()"""
-
-    values = value.split('-')
-    s_int = struct.unpack('!L', socket.inet_aton(values[0]))[0]
-    e_int = struct.unpack('!L', socket.inet_aton(values[1]))[0]
-    return s_int, e_int
-
-
-class FakeCache(object):
-    """Provides a caching mechanism for the dnslib.DNSServer"""
-
-    def __init__(self, addr_range=ADDR_RANGE_DEFAULT, duration=CACHE_DURATION_DEFAULT):
-        self._duration = duration
-        self._addr_range = get_ip_ints(addr_range)
-
-        # TODO: use something better than a dict
-        self._data = {}
-
-    @property
-    def data(self):
-        return self._data
-
-    @property
-    def duration(self):
-        return self._duration
-
-    @duration.setter
-    def duration(self, value):
-        self._duration = value
-
-    @property
-    def addr_range(self):
-        return self._addr_range
-
-    @addr_range.setter
-    def addr_range(self, value):
-        self._addr_range = get_ip_ints(value)
-
-    def __get_random_ip(self):
-        r_int = random.randrange(*self._addr_range)
-        return socket.inet_ntoa(struct.pack('!L', r_int))
-
-    def add_record(self, label):
-        rec = self._data.get(label, {})
-        if not rec:
-            rec['ip'] = self.__get_random_ip()
-        rec['time'] = time.time()
-        self._data.update({label: rec})
-
-    def get_record(self, label):
-        return self._data.get(label)
-
-    def prune_stale(self):
-        to_del = []
-        for k, v in self._data.items():
-            if v['time'] <= time.time() - self._duration:
-                to_del.append(k)
-        for k in to_del:
-            del self._data[k]
+from const import *
+from models import FakeCache
 
 
 class FakeResolver(BaseResolver):
@@ -82,20 +12,27 @@ class FakeResolver(BaseResolver):
         self._cache = cache
 
     def resolve(self, request, handler):
-        self._cache.prune_stale()
-        self._cache.add_record(request.q.qname.idna())
-        rec = self._cache.get_record(request.q.qname.idna())
+        idna = request.q.qname.idna()
 
+        self._cache.prune_stale()
         reply = request.reply()
-        reply.header.rcode = getattr(RCODE, 'NOERROR')
-        a_rec = A(rec['ip'])
-        reply.add_answer(RR(request.q.qname.idna(), rdata=a_rec))
+        reply.header.rcode = RCODE.NOERROR
+
+        if request.q.qtype == QTYPE.A:
+            self._cache.add_record(idna)
+            rec = self._cache.get_record_by_host(idna)
+            reply.add_answer(RR(idna, rclass=CLASS.IN, rtype=QTYPE.A, rdata=A(rec)))
+        elif request.q.qtype == QTYPE.PTR:
+            rec = self._cache.get_record_by_ip(idna)
+            reply.add_answer(RR(idna, rclass=CLASS.IN, rtype=QTYPE.PTR, rdata=PTR(rec)))
+        else:
+            reply.header.rcode = RCODE.SERVFAIL
 
         return reply
 
 
 class FakeDNSServer(object):
-    def __init__(self, addr=LISTEN_ADDR_DEFAULT, port=LISTEN_PORT_DEFAULT, duration=CACHE_DURATION_DEFAULT, ip_range=ADDR_RANGE_DEFAULT):
+    def __init__(self, addr=DEFAULT_LISTEN_ADDR, port=DEFAULT_LISTEN_PORT, duration=DEFAULT_CACHE_DURATION, ip_range=DEFAULT_ADDR_RANGE):
         self._addr = addr
         self._port = port
 
@@ -136,24 +73,3 @@ class FakeDNSServer(object):
 
     def stop(self):
         self._dns_server.stop()
-
-
-if __name__ == '__main__':
-    import argparse
-
-    p = argparse.ArgumentParser()
-    p.add_argument('-l', '--listen', default=LISTEN_ADDR_DEFAULT, help='Address to listen on')
-    p.add_argument('-p', '--port', default=LISTEN_PORT_DEFAULT, type=int, help='Purt to listen on (UDP)')
-    p.add_argument('-t', '--time', default=CACHE_DURATION_DEFAULT, type=int, help='Seconds for which cache entries should exist')
-    p.add_argument('-r', '--range', default=ADDR_RANGE_DEFAULT, help='Range of IP addresses to randomly generate')
-
-    args = p.parse_args()
-
-    s = FakeDNSServer(args.listen, args.port, args.time, args.range)
-
-    try:
-        s.start()
-    except KeyboardInterrupt:
-        pass
-    finally:
-        s.stop()
