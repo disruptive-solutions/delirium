@@ -53,6 +53,7 @@ class FakeCache(object):
         self._addr_range = get_ip_ints(value)
 
     def __get_random_ip(self):
+        # TODO: make sure ip isn't already in cache
         r_int = random.randrange(*self._addr_range)
         return socket.inet_ntoa(struct.pack('!L', r_int))
 
