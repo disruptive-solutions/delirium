@@ -12,6 +12,7 @@ class FakeResolver(BaseResolver):
         self._cache = cache
 
     def resolve(self, request, handler):
+        # TODO: use the handler?
         idna = request.q.qname.idna()
 
         self._cache.prune_stale()
@@ -68,8 +69,14 @@ class FakeDNSServer(object):
     def addr_range(self, value):
         self._cache.addr_range = value
 
+    def is_alive(self):
+        return self._dns_server.isAlive()
+
     def start(self):
         self._dns_server.start()
+
+    def start_thread(self):
+        self._dns_server.start_thread()
 
     def stop(self):
         self._dns_server.stop()
