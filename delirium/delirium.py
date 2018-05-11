@@ -16,7 +16,7 @@ if __name__ == '__main__':
 
     args = p.parse_args()
 
-    if args.db_path:
+    if args.db_path:  # there's probably a better way to do this
         cache_type = CACHE_TYPE.DATABASE
     else:
         cache_type = CACHE_TYPE.DICTIONARY

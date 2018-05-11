@@ -2,10 +2,10 @@ import dnslib
 import socket
 import unittest
 
-from fake_dns.const import *
-from fake_dns.models.cache import get_addr_range
-from fake_dns.models.dictionary import CacheDictionary
-from fake_dns.server import FakeDNSServer, FakeResolver
+from delirium.const import *
+from delirium.models.cache import get_addr_range
+from delirium.models.dictionary import CacheDictionary
+from delirium.server import FakeDNSServer, FakeResolver
 
 
 def suite():
