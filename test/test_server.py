@@ -3,7 +3,8 @@ import socket
 import unittest
 
 from fake_dns.const import *
-from fake_dns.models import FakeCache, _get_ip_ints
+from fake_dns.models.cache import get_addr_range
+from fake_dns.models.dictionary import CacheDictionary
 from fake_dns.server import FakeDNSServer, FakeResolver
 
 
@@ -39,7 +40,7 @@ class TestFakeDNSServer(unittest.TestCase):
 
         self.assertEqual(s.port, self.PORT)
         self.assertEqual(s.addr, DEFAULT_LISTEN_ADDR)
-        self.assertEqual(s.addr_range, _get_ip_ints(DEFAULT_ADDR_RANGE))
+        self.assertEqual(s.addr_range, get_addr_range(DEFAULT_ADDR_RANGE))
         self.assertEqual(s.duration, DEFAULT_CACHE_DURATION)
 
     # noinspection PyPropertyAccess
@@ -53,7 +54,7 @@ class TestFakeDNSServer(unittest.TestCase):
 
         new_addr_range = '192.168.0.0-192.168.0.255'
         s.addr_range = new_addr_range
-        self.assertEqual(s.addr_range, _get_ip_ints(new_addr_range))
+        self.assertEqual(s.addr_range, get_addr_range(new_addr_range))
 
         with self.assertRaises(AttributeError):
             s.cache = {}
@@ -76,21 +77,21 @@ class TestFakeResolver(unittest.TestCase):
     TEST_HOST = 'www.somedomain.tld'
 
     def test_resolver_init(self):
-        c = FakeCache()
+        c = CacheDictionary(DEFAULT_ADDR_RANGE, DEFAULT_CACHE_DURATION)
         FakeResolver(c)
 
     def test_resolver_A(self):
-        c = FakeCache()
+        c = CacheDictionary(DEFAULT_ADDR_RANGE, DEFAULT_CACHE_DURATION)
         r = FakeResolver(c)
 
         cache_q = dnslib.DNSRecord().question(self.TEST_HOST)
-        cache_rep = r.resolve(cache_q, handler=None)  # TODO: figure out if we should be using handler
+        cache_rep = r.resolve(cache_q, handler=None)
 
         self.assertEqual(self.TEST_HOST, str(cache_rep.get_a().rname)[:-1])
         self.assertTrue(_is_valid_ip_addr(str(cache_rep.get_a().rdata)))
 
     def test_resolver_PTR(self):
-        c = FakeCache()
+        c = CacheDictionary(DEFAULT_ADDR_RANGE, DEFAULT_CACHE_DURATION)
         r = FakeResolver(c)
 
         # copy from above to populate cache

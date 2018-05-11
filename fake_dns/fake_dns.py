@@ -12,10 +12,16 @@ if __name__ == '__main__':
     p.add_argument('-p', '--port', default=DEFAULT_LISTEN_PORT, type=int, help='Purt to listen on (UDP)')
     p.add_argument('-t', '--time', default=DEFAULT_CACHE_DURATION, type=int, help='Seconds for which cache entries should exist')
     p.add_argument('-r', '--range', default=DEFAULT_ADDR_RANGE, help='Range of IP addresses to randomly generate')
+    p.add_argument('--db-path', help='Path to sqlite3 database')
 
     args = p.parse_args()
 
-    s = FakeDNSServer(args.listen, args.port, args.time, args.range)
+    if args.db_path:
+        cache_type = CACHE_TYPE.DATABASE
+    else:
+        cache_type = CACHE_TYPE.DICTIONARY
+
+    s = FakeDNSServer(args.listen, args.port, args.time, args.range, cache_type, args.db_path)
 
     try:
         s.start()
