@@ -1,6 +1,6 @@
 # delirium
 
-[![Build Status](https://travis-ci.org/disruptive-solutions/fake_dns.svg?branch=master)](https://travis-ci.org/disruptive-solutions/fake_dns)
+[![Build Status](https://travis-ci.org/disruptive-solutions/delirium.svg?branch=master)](https://travis-ci.org/disruptive-solutions/delirium)
 
 Track and provide fake DNS responses and caching.  Designed to be used in a sandbox to analyze malware.
 
