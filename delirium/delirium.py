@@ -4,7 +4,7 @@ from const import *
 from server import FakeDNSServer
 
 
-if __name__ == '__main__':
+def main():
     import argparse
 
     p = argparse.ArgumentParser()
@@ -29,3 +29,7 @@ if __name__ == '__main__':
         pass
     finally:
         s.stop()
+
+
+if __name__ == '__main__':
+    main()
