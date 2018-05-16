@@ -12,7 +12,6 @@ Nothing on the market solved this problem so I wrote delirium.  INetSim and simi
 
 I'm using a stand-alone virtual-machine to host my INetSim services along with delirium.  This stand-alone VM is also the gateway I use for all of my analysis VMs.  If you have a similar setup, you'll need to redirect traffic destined to the unique addresses to the INetSim services (you'll want them listening on something other than `127.0.0.1`).  I've accomplished this with `iptables`:
 ```
-iptables -t nat -A POSTROUTING -o ens33 -j MASQUERADE
 iptables -t nat -A PREROUTING -i ens33 -j REDIRECT
 ```
 The above will give the illusion that the INetSim box is a regular gateway providing connectivity to the inetnet.  In reality, the INetSim box is acting as a gateway/proxy to itself.
