@@ -15,7 +15,7 @@ def get_addr_range(value):
 
 
 def n_generator(start, end):
-    for i in itertools.cycle(xrange(start, end + 1)):
+    for i in itertools.cycle(range(start, end + 1)):
         yield i
 
 

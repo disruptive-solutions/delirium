@@ -49,7 +49,7 @@ class CacheDatabase(CacheObject):
             p = {'id': rec['id'], 'date': time.time()}
         else:
             q = QUERY_ADD_ENTRY
-            p = {'addr': self._n_generator.next(), 'name': name, 'date': time.time()}
+            p = {'addr': next(self._n_generator), 'name': name, 'date': time.time()}
 
         self._cur.execute(q, p)
         self._conn.commit()

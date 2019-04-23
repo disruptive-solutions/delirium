@@ -12,7 +12,7 @@ class CacheDictionary(CacheObject):
         rec = self._data.get(label, {})
 
         if not rec:
-            rec['addr'] = self._n_generator.next()
+            rec['addr'] = next(self._n_generator)
 
         rec['time'] = time.time()
         self._data.update({label: rec})

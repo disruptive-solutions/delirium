@@ -3,9 +3,9 @@ import ipaddress
 from dnslib import A, CLASS, PTR, RCODE, RR, QTYPE
 from dnslib.server import BaseResolver, DNSServer
 
-from const import *
-from models.database import CacheDatabase
-from models.dictionary import CacheDictionary
+from delirium.const import *
+from delirium.models.database import CacheDatabase
+from delirium.models.dictionary import CacheDictionary
 
 
 def create_cache(addr_range, duration, cache_type, path=DEFAULT_DB_PATH):
