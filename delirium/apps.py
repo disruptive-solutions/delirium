@@ -1,6 +1,5 @@
-from const import *
-from dns import FakeDNSServer
-from tls import *
+from .const import *
+from .dns import FakeDNSServer
 
 
 def cli_app():
