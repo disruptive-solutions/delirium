@@ -1,13 +1,13 @@
-from delirium.const import *
-from delirium.server import FakeDNSServer
+from const import *
+from dns import FakeDNSServer
+from tls import *
 
 
 def cli_app():
     import argparse
-
     p = argparse.ArgumentParser()
     p.add_argument('-l', '--listen', default=DEFAULT_LISTEN_ADDR, help='Address to listen on')
-    p.add_argument('-p', '--port', default=DEFAULT_LISTEN_PORT, type=int, help='Purt to listen on (UDP)')
+    p.add_argument('-p', '--port', default=DEFAULT_LISTEN_PORT, type=int, help='Port to listen on (UDP)')
     p.add_argument('-t', '--time', default=DEFAULT_CACHE_DURATION, type=int,
                    help='Seconds for which cache entries should exist')
     p.add_argument('-r', '--range', default=DEFAULT_ADDR_RANGE, help='Range of IP addresses to randomly generate')
@@ -28,3 +28,6 @@ def cli_app():
         pass
     finally:
         s.stop()
+
+if __name__ == "__main__":
+    cli_app()

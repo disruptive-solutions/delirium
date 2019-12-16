@@ -1,6 +1,7 @@
 import itertools
 import socket
 import struct
+import ipaddress
 
 from abc import ABCMeta, abstractmethod
 
@@ -17,7 +18,6 @@ def get_addr_range(value):
 def n_generator(start, end):
     for i in itertools.cycle(range(start, end + 1)):
         yield i
-
 
 class CacheObject:
     __metaclass__ = ABCMeta
