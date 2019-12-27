@@ -1,5 +1,6 @@
 import sqlite3
 import time
+from os import path
 
 from dnslib.server import BaseResolver, DNSServer
 
@@ -31,15 +32,11 @@ def init_db(path):
     c.execute(QUERY_CREATE_TABLE)
     return c
 
-def create_cache(addr_range, duration, cache_type, path=DEFAULT_DB_PATH):
+def create_cache(addr_range, duration, path=DEFAULT_DB_PATH):
     """Provides a caching mechanism for the dnslib.DNSServer"""
 
-    if cache_type == CACHE_TYPE.DICTIONARY:
-        return CacheDictionary(addr_range, duration)
-    elif cache_type == CACHE_TYPE.DATABASE:
-        return CacheDatabase(addr_range, duration, path)
-    else:
-        raise ValueError("Unsupported cache type")
+    return CacheDatabase(addr_range, duration, path)
+
 
 class CacheDatabase(CacheObject):
     def __init__(self, addr_range, duration, path):

@@ -12,7 +12,7 @@ class FakeDNSServer(object):
         self._addr = addr
         self._port = port
 
-        self._cache = database.create_cache(ip_range, duration, cache_type, cache_path)
+        self._cache = database.create_cache(ip_range, duration, cache_path)
         self._resolver = FakeResolver(self._cache)
         self._dns_server = DNSServer(self._resolver, self._addr, self._port)
 

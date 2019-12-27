@@ -93,8 +93,6 @@ class TestCacheDatabase(unittest.TestCase):
 
         self.assertTrue(c.addr_range[0] <= addr <= c.addr_range[1])
 
-    def tearDown(self):
-        os.remove(DEFAULT_DB_PATH)
 
 if __name__ == '__main__':
     unittest.main()
