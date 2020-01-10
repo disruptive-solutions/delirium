@@ -5,8 +5,7 @@ import unittest
 from delirium.const import *
 from delirium.dns.fakednsserver import FakeDNSServer
 from delirium.dns.fakeresolver import FakeResolver
-from delirium.dns.models.cache import get_addr_range
-from delirium.dns.models.dictionary import CacheDictionary
+from delirium.dns.cache import get_addr_range
 
 
 def suite():
@@ -72,42 +71,6 @@ class TestFakeDNSServer(unittest.TestCase):
         s.start_thread()
         self.assertTrue(s.is_alive())
         s.stop()
-
-
-class TestFakeResolver(unittest.TestCase):
-    TEST_HOST = 'www.somedomain.tld'
-
-    def test_resolver_init(self):
-        c = CacheDictionary(DEFAULT_ADDR_RANGE, DEFAULT_CACHE_DURATION)
-        FakeResolver(c)
-
-    def test_resolver_A(self):
-        c = CacheDictionary(DEFAULT_ADDR_RANGE, DEFAULT_CACHE_DURATION)
-        r = FakeResolver(c)
-
-        cache_q = dnslib.DNSRecord().question(self.TEST_HOST)
-        cache_rep = r.resolve(cache_q, handler=None)
-
-        self.assertEqual(self.TEST_HOST, str(cache_rep.get_a().rname)[:-1])
-        self.assertTrue(_is_valid_ip_addr(str(cache_rep.get_a().rdata)))
-
-    def test_resolver_PTR(self):
-        c = CacheDictionary(DEFAULT_ADDR_RANGE, DEFAULT_CACHE_DURATION)
-        r = FakeResolver(c)
-
-        # copy from above to populate cache
-        cache_q = dnslib.DNSRecord().question(self.TEST_HOST)
-        cache_rep = r.resolve(cache_q, handler=None)
-        cache_ip = str(cache_rep.get_a().rdata)
-        cache_host = str(cache_rep.get_a().rname)
-
-        ip_rev = '.'.join(cache_ip.split('.')[::-1])
-        ptr = ip_rev + '.in-addr.arpa.'
-        test_q = dnslib.DNSRecord().question(ptr, qtype='PTR')
-        test_rep = r.resolve(test_q, handler=None)
-
-        self.assertEqual(str(test_rep.get_a().rdata), cache_host)
-        self.assertEqual(test_rep.get_a().rname, ptr)
 
 
 if __name__ == '__main__':

@@ -3,7 +3,7 @@ from setuptools import find_packages, setup
 
 setup(
     name='Delirium',
-    version='0.2',
+    version='0.2.3',
     description='Delirium fake DNS server',
     license='LICENSE',
     packages=find_packages(),

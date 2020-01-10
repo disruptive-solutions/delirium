@@ -17,7 +17,7 @@ def delirium():
 @click.option('-d','--db-path', default=DEFAULT_DB_PATH ,help='Path to sqlite3 database')
 def dns(laddr, lport, time, addr_pool, db_path):
     click.echo('Running Delirium DNS Server')
-    s = FakeDNSServer(laddr, lport, time, addr_pool, CACHE_TYPE.DATABASE, db_path)
+    s = FakeDNSServer(laddr, lport, time, addr_pool, db_path)
     try:
         s.start()
     except KeyboardInterrupt:

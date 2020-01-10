@@ -1,12 +1,14 @@
+import itertools
+import socket
+import struct
+import ipaddress
 import sqlite3
 import time
 from os import path
 
 from dnslib.server import BaseResolver, DNSServer
 
-from delirium.const import *
-from .dictionary import CacheDictionary
-from .cache import CacheObject
+import delirium.const
 
 
 QUERY_CREATE_TABLE = """CREATE TABLE IF NOT EXISTS cache (
@@ -25,6 +27,19 @@ QUERY_GET_BY_ADDR = "SELECT * FROM cache WHERE addr = :addr AND expired = :expir
 QUERY_GET_BY_NAME = "SELECT * FROM cache WHERE name = :name AND expired = :expired;"
 QUERY_UPDATE_DATE_BY_ID = "UPDATE cache SET date = :date WHERE id = :id;"
 
+def get_addr_range(value):
+    """Converts a <ip>-<ip> string to integers for random.randrange()"""
+
+    values = value.split('-')
+    s_int = struct.unpack('!L', socket.inet_aton(values[0]))[0]
+    e_int = struct.unpack('!L', socket.inet_aton(values[1]))[0]
+    return s_int, e_int
+
+
+def n_generator(start, end):
+    for i in itertools.cycle(range(start, end + 1)):
+        yield i
+
 
 def init_db(path):
     c = sqlite3.connect(path)
@@ -32,19 +47,36 @@ def init_db(path):
     c.execute(QUERY_CREATE_TABLE)
     return c
 
-def create_cache(addr_range, duration, path=DEFAULT_DB_PATH):
-    """Provides a caching mechanism for the dnslib.DNSServer"""
 
-    return CacheDatabase(addr_range, duration, path)
-
-
-class CacheDatabase(CacheObject):
+class CacheDatabase:
     def __init__(self, addr_range, duration, path):
-        super(CacheDatabase, self).__init__(addr_range, duration)
         self.remove_stale = False
         self._path = path
         self._conn = init_db(self._path)
         self._cur = self._conn.cursor()
+        self._addr_range = get_addr_range(addr_range)
+        self._duration = duration
+        self._n_generator = n_generator(*self._addr_range)
+
+    @property
+    def duration(self):
+        return self._duration
+
+    @duration.setter
+    def duration(self, value):
+        self._duration = value
+
+    @property
+    def addr_range(self):
+        return self._addr_range
+
+    @addr_range.setter
+    def addr_range(self, value):
+        self._addr_range = get_addr_range(value)
+
+    @staticmethod
+    def __socket_aton(value):
+        return struct.unpack('!L', socket.inet_aton(value))[0]
 
     @property
     def path(self):

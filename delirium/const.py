@@ -5,9 +5,3 @@ DEFAULT_CACHE_DURATION = 900  # 15 minutes
 DEFAULT_DB_PATH = ':memory:'  # creates the db in memory
 DEFAULT_LISTEN_ADDR = '0.0.0.0'
 DEFAULT_LISTEN_PORT = 53
-
-
-# noinspection PyPep8Naming
-class CACHE_TYPE(Enum):
-    DATABASE = 1
-    DICTIONARY = 2
