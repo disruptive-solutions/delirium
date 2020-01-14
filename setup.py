@@ -12,6 +12,12 @@ setup(
         'ipaddress',
         'click',
     ],
+    setup_requires=[
+        'pytest-runner',
+    ],
+    tests_requires=[
+        'pytest',
+    ],
     entry_points={
         'console_scripts': [
             'delirium = delirium.apps:delirium',

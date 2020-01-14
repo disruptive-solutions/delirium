@@ -1,55 +1,50 @@
 import os
 import time
-import unittest
+import pytest
 
 from delirium.const import *
 from delirium.dns.cache import get_addr_range
 from delirium.dns.cache import CacheDatabase
 
+@pytest.fixture()
+def test_db():
+    yield CacheDatabase(DEFAULT_ADDR_RANGE, DEFAULT_CACHE_DURATION, DEFAULT_DB_PATH)
 
-def suite():
-    cache_db_suite = unittest.TestLoader().loadTestsFromTestCase(TestCacheDatabase)
-    return unittest.TestSuite(cache_db_suite)
 
-
-class TestCacheDatabase(unittest.TestCase):
+@pytest.mark.usefixtures('test_db')
+class TestCacheDatabase():
     TEST_HOST = 'www.somedomain.tld'
 
-    def test_cache_init(self):
-        c = CacheDatabase(DEFAULT_ADDR_RANGE, DEFAULT_CACHE_DURATION, DEFAULT_DB_PATH)
+    def test_cache_init(self, test_db):
+        assert test_db.addr_range == get_addr_range(DEFAULT_ADDR_RANGE)
+        assert test_db.duration == DEFAULT_CACHE_DURATION
 
-        self.assertEqual(c.addr_range, get_addr_range(DEFAULT_ADDR_RANGE))
-        self.assertEqual(c.duration, DEFAULT_CACHE_DURATION)
-
-    def test_cache_update(self):
-        c = CacheDatabase(DEFAULT_ADDR_RANGE, DEFAULT_CACHE_DURATION, DEFAULT_DB_PATH)
-
+    def test_cache_update(self, test_db):
         new_dur = 500
-        c.duration = new_dur
-        self.assertEqual(c.duration, new_dur)
+        test_db.duration = new_dur
+        assert test_db.duration == new_dur
 
         new_addr_range = '192.168.0.0-192.168.0.255'
-        c.addr_range = new_addr_range
-        self.assertEqual(c.addr_range, get_addr_range(new_addr_range))
+        test_db.addr_range = new_addr_range
+        assert test_db.addr_range == get_addr_range(new_addr_range)
 
-    def test_cache_duration(self):
-        c = CacheDatabase(DEFAULT_ADDR_RANGE, 1, DEFAULT_DB_PATH)
-        c.add_record(self.TEST_HOST)
+    def test_cache_duration(self, test_db):
+        test_db.duration = 1
+        test_db.add_record(self.TEST_HOST)
 
-        self.assertTrue(c.get_addr_by_name(self.TEST_HOST))
+        assert test_db.get_addr_by_name(self.TEST_HOST)[0] > 0
 
         time.sleep(1)
-        c.prune_stale()
+        test_db.prune_stale()
 
-        self.assertEqual(len(c.get_addr_by_name(self.TEST_HOST)), 0)
+        assert len(test_db.get_addr_by_name(self.TEST_HOST)) == 0
 
-    def test_cache_range(self):
-        c = CacheDatabase(DEFAULT_ADDR_RANGE, DEFAULT_CACHE_DURATION, DEFAULT_DB_PATH)
-        c.add_record(self.TEST_HOST)
-        addr = c.get_addr_by_name(self.TEST_HOST)[0]
+    def test_cache_range(self, test_db):
+        test_db.add_record(self.TEST_HOST)
+        addr = test_db.get_addr_by_name(self.TEST_HOST)[0]
 
-        self.assertTrue(c.addr_range[0] <= addr <= c.addr_range[1])
+        assert (test_db.addr_range[0] <= addr <= test_db.addr_range[1]) == True
 
 
 if __name__ == '__main__':
-    unittest.main()
+    pytest.main()
