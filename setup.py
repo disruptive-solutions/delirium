@@ -15,7 +15,7 @@ setup(
     setup_requires=[
         'pytest-runner',
     ],
-    tests_requires=[
+    tests_require=[
         'pytest',
     ],
     entry_points={
