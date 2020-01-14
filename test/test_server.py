@@ -16,11 +16,14 @@ def _get_unused_udp_port():
     s.close()
     return port
 
+
 PORT = _get_unused_udp_port()
+
 
 @pytest.fixture()
 def test_server():
     yield FakeDNSServer(port=PORT)
+
 
 def _is_valid_ip_addr(addr):
     try:
