@@ -24,7 +24,7 @@ QUERY_UPDATE_DATE_BY_ID = "UPDATE cache SET date = :date WHERE id = :id;"
 
 
 def init_db(path):
-    c = sqlite3.connect(path)
+    c = sqlite3.connect(path, check_same_thread=False)
     c.row_factory = sqlite3.Row
     c.execute(QUERY_CREATE_TABLE)
     return c
