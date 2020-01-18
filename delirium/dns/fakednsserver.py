@@ -1,13 +1,13 @@
-from dnslib.server import BaseResolver, DNSServer
+from dnslib.server import DNSServer
 
 from delirium.const import *
 from .fakeresolver import FakeResolver
 from .cache import CacheDatabase
 
-class FakeDNSServer(object):
 
+class FakeDNSServer(object):
     def __init__(self, addr=DEFAULT_LISTEN_ADDR, port=DEFAULT_LISTEN_PORT, duration=DEFAULT_CACHE_DURATION,
-                 ip_range=DEFAULT_ADDR_RANGE, cache_path=DEFAULT_DB_PATH):
+                 ip_range=DEFAULT_SUBNET, cache_path=DEFAULT_DB_PATH):
         self._addr = addr
         self._port = port
 
@@ -36,12 +36,12 @@ class FakeDNSServer(object):
         self._cache.duration = value
 
     @property
-    def addr_range(self):
-        return self._cache.addr_range
+    def subnet(self):
+        return self._cache.subnet
 
-    @addr_range.setter
-    def addr_range(self, value):
-        self._cache.addr_range = value
+    @subnet.setter
+    def subnet(self, value):
+        self._cache.subnet = value
 
     def is_alive(self):
         return self._dns_server.isAlive()
