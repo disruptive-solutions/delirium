@@ -1,10 +1,9 @@
 from dnslib.server import BaseResolver
-from dnslib import RCODE
-from dnslib import QTYPE
+from dnslib import A, CLASS, PTR, RCODE, RR, QTYPE
 import ipaddress
 
-class FakeResolver(BaseResolver):
 
+class FakeResolver(BaseResolver):
     """Resolver object with reference to Server.cache so resolve() can interact with the cache"""
 
     def __init__(self, cache):

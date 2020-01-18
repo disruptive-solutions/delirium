@@ -1,14 +1,9 @@
+import ipaddress
 import itertools
 import socket
-import struct
-import ipaddress
 import sqlite3
+import struct
 import time
-from os import path
-
-from dnslib.server import BaseResolver, DNSServer
-
-import delirium.const
 
 
 QUERY_CREATE_TABLE = """CREATE TABLE IF NOT EXISTS cache (
@@ -27,19 +22,6 @@ QUERY_GET_BY_ADDR = "SELECT * FROM cache WHERE addr = :addr AND expired = :expir
 QUERY_GET_BY_NAME = "SELECT * FROM cache WHERE name = :name AND expired = :expired;"
 QUERY_UPDATE_DATE_BY_ID = "UPDATE cache SET date = :date WHERE id = :id;"
 
-def get_addr_range(value):
-    """Converts a <ip>-<ip> string to integers for random.randrange()"""
-
-    values = value.split('-')
-    s_int = struct.unpack('!L', socket.inet_aton(values[0]))[0]
-    e_int = struct.unpack('!L', socket.inet_aton(values[1]))[0]
-    return s_int, e_int
-
-
-def n_generator(start, end):
-    for i in itertools.cycle(range(start, end + 1)):
-        yield i
-
 
 def init_db(path):
     c = sqlite3.connect(path)
@@ -49,14 +31,14 @@ def init_db(path):
 
 
 class CacheDatabase:
-    def __init__(self, addr_range, duration, path):
+    def __init__(self, subnet, duration, path):
         self.remove_stale = False
         self._path = path
         self._conn = init_db(self._path)
         self._cur = self._conn.cursor()
-        self._addr_range = get_addr_range(addr_range)
         self._duration = duration
-        self._n_generator = n_generator(*self._addr_range)
+        self._ipv4network = ipaddress.IPv4Network(subnet)
+        self._addr_cycle = itertools.cycle(self._ipv4network)
 
     @property
     def duration(self):
@@ -67,12 +49,13 @@ class CacheDatabase:
         self._duration = value
 
     @property
-    def addr_range(self):
-        return self._addr_range
+    def subnet(self):
+        return str(self._ipv4network)
 
-    @addr_range.setter
-    def addr_range(self, value):
-        self._addr_range = get_addr_range(value)
+    @subnet.setter
+    def subnet(self, value):
+        self._ipv4network = ipaddress.IPv4Network(value)
+        self._addr_cycle = itertools.cycle(self._ipv4network)
 
     @staticmethod
     def __socket_aton(value):
@@ -91,7 +74,7 @@ class CacheDatabase:
             p = {'id': rec['id'], 'date': time.time()}
         else:
             q = QUERY_ADD_ENTRY
-            p = {'addr': next(self._n_generator), 'name': name, 'date': time.time()}
+            p = {'addr': int(next(self._addr_cycle)), 'name': name, 'date': time.time()}
 
         self._cur.execute(q, p)
         self._conn.commit()

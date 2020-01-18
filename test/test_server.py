@@ -1,11 +1,12 @@
 import dnslib
-import socket
+import ipaddress
 import pytest
+import socket
+
 
 from delirium.const import *
 from delirium.dns.fakednsserver import FakeDNSServer
 from delirium.dns.fakeresolver import FakeResolver
-from delirium.dns.cache import get_addr_range
 
 
 def _get_unused_udp_port():
@@ -25,20 +26,11 @@ def test_server():
     yield FakeDNSServer(port=PORT)
 
 
-def _is_valid_ip_addr(addr):
-    try:
-        socket.inet_aton(addr)
-    except socket.error:
-        return False
-    else:
-        return True
-
-
 class TestFakeDNSServer():
     def test_server_init(self, test_server):
         assert test_server.port == PORT
         assert test_server.addr == DEFAULT_LISTEN_ADDR
-        assert test_server.addr_range == get_addr_range(DEFAULT_ADDR_RANGE)
+        assert test_server._cache._ipv4network == ipaddress.IPv4Network(DEFAULT_SUBNET)
         assert test_server.duration == DEFAULT_CACHE_DURATION
 
     # noinspection PyPropertyAccess
@@ -48,9 +40,9 @@ class TestFakeDNSServer():
         test_server.duration = new_dur
         assert test_server.duration == new_dur
 
-        new_addr_range = '192.168.0.0-192.168.0.255'
-        test_server.addr_range = new_addr_range
-        assert test_server.addr_range == get_addr_range(new_addr_range)
+        new_subnet = '192.168.0.0/24'
+        test_server.subnet = new_subnet
+        assert test_server._cache._ipv4network == ipaddress.IPv4Network(new_subnet)
 
         with pytest.raises(AttributeError):
             test_server.cache = {}
@@ -65,7 +57,6 @@ class TestFakeDNSServer():
         test_server.start_thread()
         assert test_server.is_alive() == True
         test_server.stop()
-
 
 if __name__ == '__main__':
     pytest.main()
