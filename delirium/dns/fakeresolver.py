@@ -21,7 +21,6 @@ class FakeResolver(BaseResolver):
         return int(ip)
 
     def resolve(self, request, handler):
-        # TODO: use the handler?
         idna = request.q.qname.idna()
 
         self._cache.prune_stale()
