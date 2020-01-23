@@ -1,0 +1,35 @@
+image: "python:3.7"
+
+stages:
+  - analysis
+  - testing
+
+before_script:
+  - apt-get update -qy
+  - apt-get install -y python-dev python-pip
+
+flake8:
+  stage: analysis
+  script:
+  - python -m pip install flake8
+  - flake8 delirium/
+
+pylint:
+  stage: analysis
+  allow_failure: true
+  script:
+  - python -m pip install pylint
+  - python -m pip install click dnslib
+  - pylint -d C0114,C0115,C0116 --max-line-length=120 delirium/
+
+bandit:
+  stage: analysis
+  script:
+  - python -m pip install bandit
+  - bandit -s B104 -r delirium/
+
+pytest:
+  stage: testing
+  script:
+  - python setup.py pytest
+

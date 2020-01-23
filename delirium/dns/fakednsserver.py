@@ -1,13 +1,16 @@
 from dnslib.server import DNSServer
 
-from delirium.const import *
+from delirium import const
 from .fakeresolver import FakeResolver
 from .cache import CacheDatabase
 
 
-class FakeDNSServer(object):
-    def __init__(self, addr=DEFAULT_LISTEN_ADDR, port=DEFAULT_LISTEN_PORT, duration=DEFAULT_CACHE_DURATION,
-                 ip_range=DEFAULT_SUBNET, cache_path=DEFAULT_DB_PATH):
+class FakeDNSServer:
+    # pylint: disable=too-many-instance-attributes
+    # pylint: disable=too-many-arguments
+    def __init__(self, addr=const.DEFAULT_LISTEN_ADDR, port=const.DEFAULT_LISTEN_PORT,
+                 duration=const.DEFAULT_CACHE_DURATION, ip_range=const.DEFAULT_SUBNET,
+                 cache_path=const.DEFAULT_DB_PATH):
         self._addr = addr
         self._port = port
 

@@ -24,13 +24,14 @@ QUERY_UPDATE_DATE_BY_ID = "UPDATE cache SET date = :date WHERE id = :id;"
 
 
 def init_db(path):
-    c = sqlite3.connect(path, check_same_thread=False)
-    c.row_factory = sqlite3.Row
-    c.execute(QUERY_CREATE_TABLE)
-    return c
+    conn = sqlite3.connect(path, check_same_thread=False)
+    conn.row_factory = sqlite3.Row
+    conn.execute(QUERY_CREATE_TABLE)
+    return conn
 
 
 class CacheDatabase:
+    # pylint: disable=too-many-instance-attributes
     def __init__(self, subnet, duration, path):
         self.remove_stale = False
         self._path = path
@@ -70,13 +71,13 @@ class CacheDatabase:
         rec = self._cur.fetchone()
 
         if rec:
-            q = QUERY_UPDATE_DATE_BY_ID
-            p = {'id': rec['id'], 'date': time.time()}
+            query = QUERY_UPDATE_DATE_BY_ID
+            params = {'id': rec['id'], 'date': time.time()}
         else:
-            q = QUERY_ADD_ENTRY
-            p = {'addr': int(next(self._addr_cycle)), 'name': name, 'date': time.time()}
+            query = QUERY_ADD_ENTRY
+            params = {'addr': int(next(self._addr_cycle)), 'name': name, 'date': time.time()}
 
-        self._cur.execute(q, p)
+        self._cur.execute(query, params)
         self._conn.commit()
 
     def close(self):
@@ -110,9 +111,9 @@ class CacheDatabase:
             ids.append((row['id'],))  # executemany() seq_of_parameters should be a tuple (1-tuple in this case)
 
         if self.remove_stale:
-            q = QUERY_EXPIRE_DELETE_BY_ID
+            query = QUERY_EXPIRE_DELETE_BY_ID
         else:
-            q = QUERY_EXPIRE_UPDATE_BY_ID
+            query = QUERY_EXPIRE_UPDATE_BY_ID
 
-        self._cur.executemany(q, ids)
+        self._cur.executemany(query, ids)
         self._conn.commit()
