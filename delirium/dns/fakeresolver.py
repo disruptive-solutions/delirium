@@ -1,6 +1,7 @@
+import ipaddress
+
 from dnslib.server import BaseResolver
 from dnslib import A, CLASS, PTR, RCODE, RR, QTYPE
-import ipaddress
 
 
 class FakeResolver(BaseResolver):
@@ -12,13 +13,12 @@ class FakeResolver(BaseResolver):
     @staticmethod
     def get_addr_from_reverse_pointer(arpa):
         ip_str = '.'.join(arpa.split('.')[:-3][::-1])  # strip in-addr.arpa./ip6.arpa., reverse order, join on '.'
-        ip = ipaddress.ip_address(ip_str)
+        ip_obj = ipaddress.ip_address(ip_str)
 
-        if arpa.rstrip('.') != ip.reverse_pointer:
-            raise ValueError("Reverse pointer provided didn't match the calculated pointer ({} != {})".format(arpa,
-                             ip.reverse_pointer))
+        if arpa.rstrip('.') != ip_obj.reverse_pointer:
+            raise ValueError(f"Provided pointer doesn't match real pointer ({arpa} != {ip_obj.reverse_pointer})")
 
-        return int(ip)
+        return int(ip_obj)
 
     def resolve(self, request, handler):
         idna = request.q.qname.idna()
