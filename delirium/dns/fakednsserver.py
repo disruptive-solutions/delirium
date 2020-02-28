@@ -10,11 +10,10 @@ class FakeDNSServer:
     # pylint: disable=too-many-arguments
     def __init__(self, addr=const.DEFAULT_LISTEN_ADDR, port=const.DEFAULT_LISTEN_PORT,
                  duration=const.DEFAULT_CACHE_DURATION, ip_range=const.DEFAULT_SUBNET,
-                 cache_path=const.DEFAULT_DB_PATH):
+                 cache_path=const.DEFAULT_DB_URI, remove=False):
         self._addr = addr
         self._port = port
-
-        self._cache = CacheDatabase(ip_range, duration, cache_path)
+        self._cache = CacheDatabase(ip_range, duration, cache_path, remove)
         self._resolver = FakeResolver(self._cache)
         self._dns_server = DNSServer(self._resolver, self._addr, self._port)
 

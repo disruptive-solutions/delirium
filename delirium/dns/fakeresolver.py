@@ -3,6 +3,8 @@ import ipaddress
 from dnslib.server import BaseResolver
 from dnslib import A, CLASS, PTR, RCODE, RR, QTYPE
 
+from .cache import AddressPoolDepletionError
+
 
 class FakeResolver(BaseResolver):
     """Resolver object with reference to Server.cache so resolve() can interact with the cache"""
@@ -28,7 +30,10 @@ class FakeResolver(BaseResolver):
         reply.header.rcode = RCODE.NXDOMAIN
 
         if request.q.qtype == QTYPE.A:
-            self._cache.add_record(idna)
+            try:
+                self._cache.add_record(idna)
+            except AddressPoolDepletionError:
+                reply.header.rcode = RCODE.SERVFAIL
             for rec in self._cache.get_addr_by_name(idna):
                 addr = ipaddress.ip_address(rec)
                 reply.add_answer(RR(idna, rclass=CLASS.IN, rtype=QTYPE.A, rdata=A(str(addr))))
