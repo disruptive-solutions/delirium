@@ -1,35 +1,46 @@
 image: "python:3.7"
 
+cache:
+  key: ${CI_COMMIT_REF_SLUG}
+  paths:
+    - .cache/pip
+    - venv/
+
+variables:
+  PIP_CACHE_DIR: "$CI_PROJECT_DIR/.cache/pip"
+  SRC_DIR: "delirium"
+
 stages:
   - analysis
   - testing
 
 before_script:
-  - apt-get update -qy
-  - apt-get install -y python-dev python-pip
+  - python -V
+  - pip install virtualenv
+  - virtualenv venv
+  - source venv/bin/activate
+  - python -m pip install -r requirements.txt
 
 flake8:
   stage: analysis
   script:
   - python -m pip install flake8
-  - flake8 delirium/
+  - flake8 ${SRC_DIR}
 
 pylint:
   stage: analysis
   allow_failure: true
   script:
   - python -m pip install pylint
-  - python -m pip install click dnslib
-  - pylint -d C0114,C0115,C0116 --max-line-length=120 delirium/
+  - pylint ${SRC_DIR}
 
 bandit:
   stage: analysis
   script:
   - python -m pip install bandit
-  - bandit -s B104 -r delirium/
+  - bandit -s B104 -r ${SRC_DIR}
 
 pytest:
   stage: testing
   script:
   - python setup.py pytest
-

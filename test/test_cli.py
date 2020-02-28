@@ -1,6 +1,4 @@
 import multiprocessing
-import pytest
-import time
 
 from click.testing import CliRunner
 
@@ -9,8 +7,10 @@ from delirium.apps import dns
 
 runner = CliRunner()
 
+
 def run_clirunner():
     response = runner.invoke(dns,)
+
 
 def test_cli_help():
     response = runner.invoke(dns, ['--help'])
@@ -24,8 +24,7 @@ def test_cli_bad_switch():
 
 def test_cli_no_args():
 
-
     p = multiprocessing.Process(target=run_clirunner)
     p.start()
-    assert p.is_alive() == True
+    assert p.is_alive() is True
     p.kill()

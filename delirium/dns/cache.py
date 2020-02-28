@@ -1,45 +1,35 @@
+import datetime
 import ipaddress
-import itertools
 import socket
-import sqlite3
 import struct
-import time
+
+from delirium.const import DEFAULT_CACHE_DURATION, DEFAULT_DB_URI, DEFAULT_SUBNET
+from delirium import database
+
+from .models import DNSRecord
 
 
-QUERY_CREATE_TABLE = """CREATE TABLE IF NOT EXISTS cache (
-                            id integer PRIMARY KEY AUTOINCREMENT,
-                            addr integer NOT NULL,
-                            name text NOT NULL,
-                            date real NOT NULL,
-                            expired integer DEFAULT 0
-                        );"""
-
-QUERY_ADD_ENTRY = "INSERT INTO cache (addr, name, date) VALUES (:addr, :name, :date);"
-QUERY_EXPIRE_DELETE_BY_ID = "DELETE FROM cache WHERE id = (?);"
-QUERY_EXPIRE_UPDATE_BY_ID = "UPDATE cache SET expired = 1 WHERE id = (?);"
-QUERY_GET_BY_EXPIRED = "SELECT * FROM cache WHERE expired = :expired;"
-QUERY_GET_BY_ADDR = "SELECT * FROM cache WHERE addr = :addr AND expired = :expired;"
-QUERY_GET_BY_NAME = "SELECT * FROM cache WHERE name = :name AND expired = :expired;"
-QUERY_UPDATE_DATE_BY_ID = "UPDATE cache SET date = :date WHERE id = :id;"
-
-
-def init_db(path):
-    conn = sqlite3.connect(path, check_same_thread=False)
-    conn.row_factory = sqlite3.Row
-    conn.execute(QUERY_CREATE_TABLE)
-    return conn
+class AddressPoolDepletionError(Exception):
+    pass
 
 
 class CacheDatabase:
     # pylint: disable=too-many-instance-attributes
-    def __init__(self, subnet, duration, path):
-        self.remove_stale = False
-        self._path = path
-        self._conn = init_db(self._path)
-        self._cur = self._conn.cursor()
+    def __init__(self, subnet=DEFAULT_SUBNET, duration=DEFAULT_CACHE_DURATION, db_uri=DEFAULT_DB_URI, remove=False):
+        self._remove_stale = remove
+        self._db_engine = database.init_engine(db_uri)
+        self._session = database.init_db(self._db_engine)
         self._duration = duration
-        self._ipv4network = ipaddress.IPv4Network(subnet)
-        self._addr_cycle = itertools.cycle(self._ipv4network)
+        self._ipv4network = ipaddress.ip_network(subnet)
+        self._hosts_pool = set(self._ipv4network.hosts())
+
+    @property
+    def remove(self):
+        return self._remove_stale
+
+    @remove.setter
+    def remove(self, value):
+        self._remove_stale = value
 
     @property
     def duration(self):
@@ -55,65 +45,52 @@ class CacheDatabase:
 
     @subnet.setter
     def subnet(self, value):
-        self._ipv4network = ipaddress.IPv4Network(value)
-        self._addr_cycle = itertools.cycle(self._ipv4network)
+        self._ipv4network = ipaddress.ip_network(value)
+        self.prune_stale()
+        self.regenerate_hosts_pool()
 
     @staticmethod
     def __socket_aton(value):
         return struct.unpack('!L', socket.inet_aton(value))[0]
 
-    @property
-    def path(self):
-        return self._path
-
     def add_record(self, name):
-        self._cur.execute(QUERY_GET_BY_NAME, {'name': name, 'expired': 0})
-        rec = self._cur.fetchone()
+        if not self._hosts_pool:
+            self.regenerate_hosts_pool()
 
-        if rec:
-            query = QUERY_UPDATE_DATE_BY_ID
-            params = {'id': rec['id'], 'date': time.time()}
-        else:
-            query = QUERY_ADD_ENTRY
-            params = {'addr': int(next(self._addr_cycle)), 'name': name, 'date': time.time()}
+        try:
+            return DNSRecord.add_or_update(self._session,
+                                           name=name,
+                                           duration=self.duration,
+                                           ip_address=self._hosts_pool.pop())
+        except KeyError as e:
+            raise AddressPoolDepletionError("Entire address pool in use.") from e
 
-        self._cur.execute(query, params)
-        self._conn.commit()
+    def regenerate_hosts_pool(self):
+        active_recs = self._session.query(DNSRecord).filter_by(expired=False).all()
+        active_addrs = {ipaddress.IPv4Address(rec.address) for rec in active_recs}
+        all_addrs = set(self._ipv4network.hosts())
+        self._hosts_pool = all_addrs - active_addrs
 
     def close(self):
-        self._cur.close()
-        self._conn.commit()
-        self._conn.close()
+        self._session.close()
+        self._db_engine.dispose()
 
-    def get_name_by_addr(self, addr, expired=0):
-        self._cur.execute(QUERY_GET_BY_ADDR, {'addr': addr, 'expired': expired})
+    def drop_db(self):
+        database.drop_db(self._db_engine)
 
-        out = []
-        for rec in self._cur:
-            out.append(rec['id'])
+    def get_name_by_addr(self, addr, expired=False):
+        records = self._session.query(DNSRecord).filter_by(address=addr, expired=expired).all()
+        return [rec.name for rec in records]
 
-        return out
-
-    def get_addr_by_name(self, name, expired=0):
-        self._cur.execute(QUERY_GET_BY_NAME, {'name': name, 'expired': expired})
-
-        out = []
-        for rec in self._cur:
-            out.append(rec['addr'])
-
-        return out
+    def get_addr_by_name(self, name, expired=False):
+        records = self._session.query(DNSRecord).filter_by(name=name, expired=expired).all()
+        return [rec.address for rec in records]
 
     def prune_stale(self):
-        self._cur.execute(QUERY_GET_BY_EXPIRED, {'expired': 0})
-        ids = []
-
-        for row in self._cur:
-            ids.append((row['id'],))  # executemany() seq_of_parameters should be a tuple (1-tuple in this case)
-
-        if self.remove_stale:
-            query = QUERY_EXPIRE_DELETE_BY_ID
+        if self.remove:
+            self._session.query(DNSRecord).filter(DNSRecord.expire_date <= datetime.datetime.now())\
+                                          .delete()
         else:
-            query = QUERY_EXPIRE_UPDATE_BY_ID
-
-        self._cur.executemany(query, ids)
-        self._conn.commit()
+            self._session.query(DNSRecord).filter(DNSRecord.expire_date <= datetime.datetime.now())\
+                                          .update({'expired': True})
+        self._session.commit()

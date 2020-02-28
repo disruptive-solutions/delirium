@@ -10,6 +10,7 @@ setup(
     install_requires=[
         'dnslib',
         'ipaddress',
+        'sqlalchemy',
         'click',
     ],
     setup_requires=[

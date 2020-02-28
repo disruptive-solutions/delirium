@@ -1,4 +1,3 @@
-import dnslib
 import ipaddress
 import pytest
 import socket
@@ -6,7 +5,6 @@ import socket
 
 from delirium.const import *
 from delirium.dns.fakednsserver import FakeDNSServer
-from delirium.dns.fakeresolver import FakeResolver
 
 
 def _get_unused_udp_port():
@@ -26,37 +24,39 @@ def test_server():
     yield FakeDNSServer(port=PORT)
 
 
-class TestFakeDNSServer():
-    def test_server_init(self, test_server):
-        assert test_server.port == PORT
-        assert test_server.addr == DEFAULT_LISTEN_ADDR
-        assert test_server._cache._ipv4network == ipaddress.IPv4Network(DEFAULT_SUBNET)
-        assert test_server.duration == DEFAULT_CACHE_DURATION
+def test_server_init(test_server):
+    assert test_server.port == PORT
+    assert test_server.addr == DEFAULT_LISTEN_ADDR
+    assert test_server._cache._ipv4network == ipaddress.IPv4Network(DEFAULT_SUBNET)
+    assert test_server.duration == DEFAULT_CACHE_DURATION
 
-    # noinspection PyPropertyAccess
-    def test_server_update(self, test_server):
-        # really updating the FakeCache object but the server will proxy these
-        new_dur = 500
-        test_server.duration = new_dur
-        assert test_server.duration == new_dur
 
-        new_subnet = '192.168.0.0/24'
-        test_server.subnet = new_subnet
-        assert test_server._cache._ipv4network == ipaddress.IPv4Network(new_subnet)
+# noinspection PyPropertyAccess
+def test_server_update(test_server):
+    # really updating the FakeCache object but the server will proxy these
+    new_dur = 500
+    test_server.duration = new_dur
+    assert test_server.duration == new_dur
 
-        with pytest.raises(AttributeError):
-            test_server.cache = {}
+    new_subnet = '192.168.0.0/24'
+    test_server.subnet = new_subnet
+    assert test_server._cache._ipv4network == ipaddress.IPv4Network(new_subnet)
 
-        with pytest.raises(AttributeError):
-            test_server.port = _get_unused_udp_port()
+    with pytest.raises(AttributeError):
+        test_server.cache = {}
 
-        with pytest.raises(AttributeError):
-            test_server.addr = '192.168.0.100'
+    with pytest.raises(AttributeError):
+        test_server.port = _get_unused_udp_port()
 
-    def test_server_start(self, test_server):
-        test_server.start_thread()
-        assert test_server.is_alive() == True
-        test_server.stop()
+    with pytest.raises(AttributeError):
+        test_server.addr = '192.168.0.100'
+
+
+def test_server_start(test_server):
+    test_server.start_thread()
+    assert test_server.is_alive() is True
+    test_server.stop()
+
 
 if __name__ == '__main__':
     pytest.main()
