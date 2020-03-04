@@ -23,9 +23,6 @@ def test_cache_init(test_db: CacheDatabase):
 
 
 def test_cache_update(test_db):
-    host_a = "www.a.com"
-    host_b = "www.b.com"
-    host_c = "www.c.com"
 
     #  Test update of duration
     new_dur = 500
@@ -59,7 +56,7 @@ def test_cache_duration(test_db):
 
     time.sleep(2)
     test_db.prune_stale()
-    query_results = test_db.get_addr_by_name(TEST_HOST, 1)
+    query_results = test_db.get_addr_by_name(TEST_HOST, True)
     assert query_results.pop() == test_addr
 
     #  Test infinite duration when duration = 0
@@ -67,7 +64,7 @@ def test_cache_duration(test_db):
     test_db.add_record(TEST_HOST)
     test_addr = test_db.get_addr_by_name(TEST_HOST)[0]
     time.sleep(2)
-    query_results = test_db.get_addr_by_name(TEST_HOST, 0)
+    query_results = test_db.get_addr_by_name(TEST_HOST, False)
     assert query_results.pop() == test_addr
 
 
@@ -80,14 +77,14 @@ def test_pruning_behavior(test_db):
     #  Test expiring of entries
     test_db.remove = False
     test_db.prune_stale()
-    query_results = test_db.get_addr_by_name(TEST_HOST, 1)
+    query_results = test_db.get_addr_by_name(TEST_HOST, expired=True)
     assert query_results.pop() == test_addr
 
     #  Test removal of entries
     test_db.remove = True
     assert test_db.remove is True
     test_db.prune_stale()
-    query_results = test_db.get_addr_by_name(TEST_HOST, 1)
+    query_results = test_db.get_addr_by_name(TEST_HOST, expired=True)
     assert query_results == []
 
 
