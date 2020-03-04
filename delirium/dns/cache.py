@@ -1,12 +1,13 @@
-import datetime
 import ipaddress
 import socket
 import struct
 
+from typing import AnyStr, List
+
 from delirium.const import DEFAULT_CACHE_DURATION, DEFAULT_DB_URI, DEFAULT_SUBNET
 from delirium import database
 
-from .models import DNSRecord
+from . import models
 
 
 class AddressPoolDepletionError(Exception):
@@ -53,20 +54,20 @@ class CacheDatabase:
     def __socket_aton(value):
         return struct.unpack('!L', socket.inet_aton(value))[0]
 
-    def add_record(self, name):
+    def add_record(self, name: str) -> object:
         if not self._hosts_pool:
             self.regenerate_hosts_pool()
 
         try:
-            return DNSRecord.add_or_update(self._session,
-                                           name=name,
-                                           duration=self.duration,
-                                           ip_address=self._hosts_pool.pop())
+            return models.add_or_update_record(self._session,
+                                               name=name,
+                                               duration=self.duration,
+                                               ip_address=self._hosts_pool.pop())
         except KeyError as e:
             raise AddressPoolDepletionError("Entire address pool in use.") from e
 
     def regenerate_hosts_pool(self):
-        active_recs = self._session.query(DNSRecord).filter_by(expired=False).all()
+        active_recs = models.get_records_by_status(self._session, expired=False)
         active_addrs = {ipaddress.IPv4Address(rec.address) for rec in active_recs}
         all_addrs = set(self._ipv4network.hosts())
         self._hosts_pool = all_addrs - active_addrs
@@ -78,19 +79,16 @@ class CacheDatabase:
     def drop_db(self):
         database.drop_db(self._db_engine)
 
-    def get_name_by_addr(self, addr, expired=False):
-        records = self._session.query(DNSRecord).filter_by(address=addr, expired=expired).all()
+    def get_name_by_addr(self, addr: int, *, expired: bool = False) -> List[AnyStr]:
+        records = models.get_records_by_address(self._session, address=addr, expired=expired)
         return [rec.name for rec in records]
 
-    def get_addr_by_name(self, name, expired=False):
-        records = self._session.query(DNSRecord).filter_by(name=name, expired=expired).all()
+    def get_addr_by_name(self, name: str, *, expired: bool = False) -> List[AnyStr]:
+        records = models.get_records_by_name(self._session, name=name, expired=expired)
         return [rec.address for rec in records]
 
     def prune_stale(self):
         if self.remove:
-            self._session.query(DNSRecord).filter(DNSRecord.expire_date <= datetime.datetime.now())\
-                                          .delete()
+            models.delete_record(self._session)
         else:
-            self._session.query(DNSRecord).filter(DNSRecord.expire_date <= datetime.datetime.now())\
-                                          .update({'expired': True})
-        self._session.commit()
+            models.mark_record_expired(self._session)
