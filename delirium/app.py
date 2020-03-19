@@ -7,7 +7,7 @@ from delirium import const
 from delirium.dns import FakeDNSServer, DeliriumDNSLogger
 
 
-verbose_levels = (logging.WARNING, logging.INFO, logging.DEBUG)
+verbose_levels = (logging.INFO, logging.DEBUG)
 verbose_opt_type = click.IntRange(0, len(verbose_levels)-1, clamp=True)
 
 
