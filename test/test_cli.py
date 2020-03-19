@@ -2,7 +2,7 @@ import multiprocessing
 
 from click.testing import CliRunner
 
-from delirium.apps import dns
+from delirium.app import dns
 
 
 runner = CliRunner()
