@@ -1,4 +1,5 @@
 import datetime
+import logging
 
 from ipaddress import IPv4Address
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
@@ -6,6 +7,9 @@ from sqlalchemy.orm import Session, exc as orm_exc
 from sqlalchemy.exc import DatabaseError
 
 from delirium.database import Base
+
+
+logger = logging.getLogger(__name__)
 
 
 class DNSRecord(Base):
@@ -21,7 +25,7 @@ class DNSRecord(Base):
     expired = Column(Boolean, default=False)
 
     def __repr__(self):
-        return f"<DNSRecord ({self.name})>"
+        return f"<DNSRecord ({self.name} @ {IPv4Address(self.address)})>"
 
     def serialize(self):
         return {'id': self.id,
@@ -42,10 +46,13 @@ def add_or_update_record(session: Session, *, name: object, duration: int, ip_ad
                         .filter(DNSRecord.name == name)\
                         .one()
         record.expire_date = datetime.datetime.now() + delta
+        logging.info('Revisiting record: %s ==> %s', name, ip_address)
     except orm_exc.NoResultFound:
         record = DNSRecord(address=int(ip_address), name=name, expire_date=datetime.datetime.now() + delta)
+        logging.info('Adding record: %s ==> %s', record.name, ip_address)
         session.add(record)
     except DatabaseError:
+        logging.error('Rolling back database due to error')
         session.rollback()
         raise
 
@@ -53,37 +60,35 @@ def add_or_update_record(session: Session, *, name: object, duration: int, ip_ad
     return record
 
 
-def get_records_by_status(session: Session, *, expired: bool):
-    """ Retrieve all active DNS records """
+def get_records(session: Session, *, address: int = None, name: str = None, expired: bool = False):
+    """ Retrive DNS records that match given "address" or "name" and/or "expired" values """
+    if address:
+        return session.query(DNSRecord)\
+                      .filter_by(address=address, expired=expired)\
+                      .all()
+    if name:
+        return session.query(DNSRecord)\
+                      .filter_by(name=name, expired=expired)\
+                      .all()
+
     return session.query(DNSRecord)\
                   .filter_by(expired=expired)\
                   .all()
 
 
-def get_records_by_address(session: Session, *, address: int, expired: bool):
-    """ Retrive DNS records that match given "address" and "expired" values """
-    return session.query(DNSRecord)\
-                  .filter_by(address=address, expired=expired)\
-                  .all()
-
-
-def get_records_by_name(session: Session, *, name: str, expired: bool):
-    """ Retrive DNS records that match given "name" and "expired" values """
-    return session.query(DNSRecord)\
-                  .filter_by(name=name, expired=expired)\
-                  .all()
-
-
 def delete_record(session: Session):
     """ Remove DNS record from database """
+    logging.debug('Deleting stale records from database')
     session.query(DNSRecord)\
            .filter(DNSRecord.expire_date <= datetime.datetime.now())\
            .delete()
     session.commit()
+    # add message about records deleted
 
 
 def mark_record_expired(session: Session):
     """ Change DNS record's "expired" value to True """
+    logging.debug('Marking stale records')
     session.query(DNSRecord)\
            .filter(DNSRecord.expire_date <= datetime.datetime.now())\
            .update({'expired': True})

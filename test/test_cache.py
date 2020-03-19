@@ -1,10 +1,11 @@
-import ipaddress
 import pytest
 import time
 
+import ipaddress
+
 from delirium.const import *
-from delirium.dns.cache import AddressPoolDepletionError
-from delirium.dns.cache import CacheDatabase
+from delirium.dns.resolver import AddressPoolDepletionError
+from delirium.dns.resolver import DatabaseResolver
 
 
 TEST_HOST = 'www.somedomain.tld'
@@ -12,13 +13,13 @@ TEST_HOST = 'www.somedomain.tld'
 
 @pytest.fixture()
 def test_db():
-    cache = CacheDatabase(duration=1)
+    cache = DatabaseResolver(DEFAULT_SUBNET, duration=1)
     yield cache
     cache.drop_db()
     cache.close()
 
 
-def test_cache_init(test_db: CacheDatabase):
+def test_cache_init(test_db: DatabaseResolver):
     assert test_db._ipv4network == ipaddress.IPv4Network(DEFAULT_SUBNET)
 
 

@@ -21,7 +21,7 @@ setup(
     ],
     entry_points={
         'console_scripts': [
-            'delirium = delirium.apps:delirium',
+            'delirium = delirium.app:delirium',
         ],
     }
 )
