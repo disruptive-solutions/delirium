@@ -2,7 +2,7 @@ import logging
 import socket
 import struct
 
-from typing import AnyStr, List
+from typing import AnyStr, List, Union
 
 import ipaddress
 
@@ -13,10 +13,6 @@ from delirium.const import DEFAULT_CACHE_DURATION, DEFAULT_DB_URI
 from delirium import database
 
 from . import models
-
-
-class AddressPoolDepletionError(Exception):
-    pass
 
 
 class DatabaseResolver(BaseResolver):
@@ -64,18 +60,31 @@ class DatabaseResolver(BaseResolver):
     def __socket_aton(value):
         return struct.unpack('!L', socket.inet_aton(value))[0]
 
-    def add_record(self, name: str) -> object:
+    def get_available_ip(self) -> Union[int, None]:
+        """ Returns an available IP address from the pool if one is available.
+        Otherwise, it returns None
+        """
         if not self._hosts_pool:
+            self.prune_stale()
             self.regenerate_hosts_pool()
+        if self._hosts_pool:
+            return self._hosts_pool.pop()
+        return None
 
-        try:
-            return models.add_or_update_record(self._session,
-                                               name=name,
-                                               duration=self.duration,
-                                               ip_address=self._hosts_pool.pop())
-        except KeyError as e:
-            self.logger.info('No addresses left in pool')
-            raise AddressPoolDepletionError("Entire address pool in use.") from e
+    def add_record(self, idna) -> Union[models.DNSRecord, None]:
+        addr = int(self.get_available_ip())
+        if addr:
+            return models.add_record(self._session,
+                                     name=idna,
+                                     duration=self.duration,
+                                     address=addr)
+        self.logger.warning("Address pool exhausted")
+        return None
+
+    def update_record(self, idna) -> models.DNSRecord:
+        return models.update_record(self._session,
+                                    name=idna,
+                                    duration=self.duration)
 
     def regenerate_hosts_pool(self):
         self.logger.debug('Regenerating hosts pool')
@@ -105,10 +114,11 @@ class DatabaseResolver(BaseResolver):
         return [rec.address for rec in records]
 
     def prune_stale(self):
-        self.logger.debug('Pruning stale records')
         if self.remove:
+            self.logger.debug('Deleting stale records from database')
             models.delete_record(self._session)
         else:
+            self.logger.debug('Marking stale records')
             models.mark_record_expired(self._session)
 
     @staticmethod
@@ -130,13 +140,15 @@ class DatabaseResolver(BaseResolver):
 
         if request.q.qtype == QTYPE.A:
             try:
-                self.add_record(idna)
-            except AddressPoolDepletionError:
-                reply.header.rcode = RCODE.SERVFAIL
+                record = self.update_record(idna)
+            except models.NoRecordsFoundError:
+                record = self.add_record(idna)
 
-            for rec in self.get_addr_by_name(idna):
-                addr = ipaddress.ip_address(rec)
+            if record:
+                addr = ipaddress.ip_address(record.address)
                 reply.add_answer(RR(idna, rclass=CLASS.IN, rtype=QTYPE.A, rdata=A(str(addr))))
+            else:
+                reply.header.rcode = RCODE.SERVFAIL
         elif request.q.qtype == QTYPE.PTR:
             addr = self.get_addr_from_reverse_pointer(idna)
             for rec in self.get_name_by_addr(addr):
