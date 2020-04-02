@@ -1,15 +1,22 @@
 import datetime
-import logging
 
-from ipaddress import IPv4Address
+from typing import AnyStr
+
+import ipaddress
+
 from sqlalchemy import Boolean, Column, DateTime, Integer, String
-from sqlalchemy.orm import Session, exc as orm_exc
-from sqlalchemy.exc import DatabaseError
+from sqlalchemy.exc import DatabaseError, IntegrityError
+from sqlalchemy.orm import Session
 
 from delirium.database import Base
 
 
-logger = logging.getLogger(__name__)
+class AddressPoolDepletionError(Exception):
+    """Raises an error if there are no addresses available"""
+
+
+class NoRecordsFoundError(Exception):
+    """Raises an error if there are no no records found"""
 
 
 class DNSRecord(Base):
@@ -19,13 +26,13 @@ class DNSRecord(Base):
     __tablename__ = 'dns'
 
     id = Column(Integer, primary_key=True)
-    address = Column(Integer)
-    name = Column(String)
-    expire_date = Column(DateTime)
+    address = Column(Integer, nullable=False)
+    name = Column(String, nullable=False)
+    expire_date = Column(DateTime)  # Nullable to facilitate unexpiring records
     expired = Column(Boolean, default=False)
 
     def __repr__(self):
-        return f"<DNSRecord ({self.name} @ {IPv4Address(self.address)})>"
+        return f"<DNSRecord ({self.name} @ {ipaddress.ip_address(self.address)})>"
 
     def serialize(self):
         return {'id': self.id,
@@ -35,29 +42,37 @@ class DNSRecord(Base):
                 'expired': self.expired}
 
 
-def add_or_update_record(session: Session, *, name: object, duration: int, ip_address: IPv4Address) -> DNSRecord:
-    """ Update DNS record expirartion time or
-    add a new entry if the record does not already exist
-    :rtype: object"""
-    delta = datetime.timedelta(seconds=duration)
-
+def update_record(session: Session, *, name: AnyStr, duration: int) -> DNSRecord:
+    """ Update DNS record expirartion time """
     try:
-        record = session.query(DNSRecord)\
-                        .filter(DNSRecord.name == name)\
-                        .one()
+        record = get_records(session, name=name, expired=False)[0]
+        delta = datetime.timedelta(seconds=duration)
         record.expire_date = datetime.datetime.now() + delta
-        logging.info('Revisiting record: %s ==> %s', name, ip_address)
-    except orm_exc.NoResultFound:
-        record = DNSRecord(address=int(ip_address), name=name, expire_date=datetime.datetime.now() + delta)
-        logging.info('Adding record: %s ==> %s', record.name, ip_address)
-        session.add(record)
+        session.commit()
     except DatabaseError:
-        logging.error('Rolling back database due to error')
         session.rollback()
         raise
+    except IndexError as e:
+        raise NoRecordsFoundError('No records were found to update') from e
+    else:
+        return record
 
-    session.commit()
-    return record
+
+def add_record(session: Session, *, name: AnyStr, duration: int, address: int) -> DNSRecord:
+    """Add a new entry if the record does not already exist """
+    try:
+        delta = datetime.timedelta(seconds=duration)
+        record = DNSRecord(address=address, name=name, expire_date=datetime.datetime.now() + delta)
+        session.add(record)
+        session.commit()
+    except IntegrityError as e:
+        session.rollback()
+        raise AddressPoolDepletionError('No address available to assign') from e
+    except DatabaseError:
+        session.rollback()
+        raise
+    else:
+        return record
 
 
 def get_records(session: Session, *, address: int = None, name: str = None, expired: bool = False):
@@ -78,17 +93,15 @@ def get_records(session: Session, *, address: int = None, name: str = None, expi
 
 def delete_record(session: Session):
     """ Remove DNS record from database """
-    logging.debug('Deleting stale records from database')
     session.query(DNSRecord)\
            .filter(DNSRecord.expire_date <= datetime.datetime.now())\
            .delete()
     session.commit()
-    # add message about records deleted
+    # TODO - return number of records deleted
 
 
 def mark_record_expired(session: Session):
     """ Change DNS record's "expired" value to True """
-    logging.debug('Marking stale records')
     session.query(DNSRecord)\
            .filter(DNSRecord.expire_date <= datetime.datetime.now())\
            .update({'expired': True})

@@ -31,10 +31,6 @@ def init_db(engine: None):
     return Session()
 
 
-def get_session():
-    return Session()
-
-
 def drop_db(engine):
     logger.info('Dropping database')
     Base.metadata.drop_all(engine)

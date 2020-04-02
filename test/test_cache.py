@@ -4,7 +4,6 @@ import time
 import ipaddress
 
 from delirium.const import *
-from delirium.dns.resolver import AddressPoolDepletionError
 from delirium.dns.resolver import DatabaseResolver
 
 
@@ -104,8 +103,6 @@ def test_cache_regeneration(test_db):
 
     test_db.add_record(host_a)
     test_db.add_record(host_b)
-    with pytest.raises(AddressPoolDepletionError):
-        test_db.add_record(host_c)
     assert test_db.get_addr_by_name(host_a) != []
     with pytest.raises(IndexError):
         test_db.get_addr_by_name(host_c)[0]
