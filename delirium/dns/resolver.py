@@ -72,12 +72,12 @@ class DatabaseResolver(BaseResolver):
         return None
 
     def add_record(self, idna) -> Union[models.DNSRecord, None]:
-        addr = int(self.get_available_ip())
+        addr = self.get_available_ip()
         if addr:
             return models.add_record(self._session,
                                      name=idna,
                                      duration=self.duration,
-                                     address=addr)
+                                     address=int(addr))
         self.logger.warning("Address pool exhausted")
         return None
 
